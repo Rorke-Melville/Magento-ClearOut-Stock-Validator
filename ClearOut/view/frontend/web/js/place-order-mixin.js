@@ -17,12 +17,9 @@ define([
             function createDynamicPopup(validation) {
                 var popupConfig = getPopupConfig(validation);
                 
-                // Debug logging for product information
-                console.log('Validation object:', validation);
-                console.log('clearOutItems:', validation.clearOutItems);
-                console.log('Items length:', validation.clearOutItems ? validation.clearOutItems.length : 'undefined');
-                
                 var clearOutItemsList;
+                var storeAvailabilitySection = '';
+                
                 if (validation.reason === 'insufficient_stock' && validation.stockDetails && validation.stockDetails.length > 0) {
                     clearOutItemsList = validation.stockDetails.map(function(item, index) {
                         return `<div style="
@@ -45,10 +42,95 @@ define([
                             "></div>
                             <div style="flex: 1;">
                                 <div style="font-weight: 600; color: #1f2937; font-size: 14px; margin-bottom: 2px;">${item.name}</div>
-                                <div style="font-size: 12px; color: #6b7280;">SKU: ${item.sku} • Quantity: ${item.requestedQty} • Available: ${item.availableQty}</div>
+                                <div style="font-size: 12px; color: #6b7280;">SKU: ${item.sku} • Order Qty: ${item.requestedQty} • Available Qty: ${item.availableQty}</div>
                             </div>
                         </div>`;
                     }).join('');
+                    
+                    if (validation.stockDetails && validation.stockDetails.length > 0) {
+                        var storeAvailabilityList = '';
+                        
+                        validation.stockDetails.forEach(function(item) {
+                            if (item.availableStores && item.availableStores.length > 0) {
+                                var storesList = item.availableStores.map(function(store) {
+                                    return `<span style="
+                                        display: inline-block;
+                                        background: transparent;
+                                        color: #10b981;
+                                        padding: 6px 12px;
+                                        border-radius: 6px;
+                                        font-size: 12px;
+                                        font-weight: 500;
+                                        margin: 3px 6px 3px 0;
+                                        border: 1.5px solid #10b981;
+                                        transition: all 0.2s ease;
+                                    " onmouseover="
+                                        this.style.background='#10b981'; 
+                                        this.style.color='white';
+                                        this.style.transform='translateY(-1px)';
+                                    " onmouseout="
+                                        this.style.background='transparent'; 
+                                        this.style.color='#10b981';
+                                        this.style.transform='translateY(0)';
+                                    ">${store}</span>`;
+                                }).join('');
+                                
+                                storeAvailabilityList += `
+                                    <div style="margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid #e6f7f3;">
+                                        <div style="
+                                            font-weight: 600; 
+                                            color: #1f2937; 
+                                            font-size: 14px; 
+                                            margin-bottom: 10px;
+                                            display: flex;
+                                            align-items: center;
+                                        ">
+                                            <div style="
+                                                width: 6px;
+                                                height: 6px;
+                                                background: #0099a8;
+                                                border-radius: 50%;
+                                                margin-right: 8px;
+                                            "></div>
+                                            ${item.name}
+                                        </div>
+                                        <div style="margin-left: 14px;">
+                                            ${storesList}
+                                        </div>
+                                    </div>
+                                `;
+                            }
+                        });
+                        
+                        if (storeAvailabilityList) {
+                            storeAvailabilitySection = `
+                                <div style="margin-bottom: 24px;">
+                                    <h4 style="
+                                        margin: 0 0 16px 0; 
+                                        font-size: 16px; 
+                                        font-weight: 600; 
+                                        color: #374151;
+                                        display: flex;
+                                        align-items: center;
+                                    ">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0099a8" stroke-width="2" style="margin-right: 8px;">
+                                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                                            <circle cx="12" cy="10" r="3"/>
+                                        </svg>
+                                        Available at Other Locations
+                                    </h4>
+                                    <div style="
+                                        background: ${popupConfig.storeListBg}; 
+                                        border-radius: 12px; 
+                                        padding: 20px;
+                                        border: 1px solid ${popupConfig.storeListBorder};
+                                    ">
+                                        ${storeAvailabilityList}
+                                    </div>
+                                </div>
+                            `;
+                        }
+                    }
                 } else if (validation.clearOutItems && validation.clearOutItems.length > 0) {
                     clearOutItemsList = validation.clearOutItems.map(function(item, index) {
                         return `<div style="
@@ -248,6 +330,9 @@ define([
                                         ${clearOutItemsList}
                                     </div>
                                 </div>
+
+                                <!-- Store Availability Section (only for insufficient stock) -->
+                                ${storeAvailabilitySection}
                             </div>
 
                             <!-- Footer Section -->
@@ -308,8 +393,6 @@ define([
                     });
                 }, 50);
                 
-                console.log(`Enhanced ${validation.reason} popup created`);
-                
                 // Add closing functionality with improved animations
                 $('#clear-out-close-btn').on('click', closePopup);
                 $('#clear-out-popup').on('click', function(e) {
@@ -355,6 +438,9 @@ define([
                         shadowColor: 'rgba(0, 153, 168, 0.1)'
                     };
                 } else if (validation.reason === 'insufficient_stock') {
+                    // Get store name from validation or use default
+                    var storeName = (validation.storeDetails && validation.storeDetails.storeName && validation.storeDetails.storeName !== '') ? validation.storeDetails.storeName.replace('Gelmar ', '') : 'your selected store';
+                    
                     return {
                         // Stock error styling (same teal/cyan theme as delivery)
                         headerGradient: 'linear-gradient(135deg, #0099a8 0%, #00b8cc 25%, #0099a8 100%)',
@@ -365,7 +451,7 @@ define([
                         noticeBorder: '#b3f0ff',
                         accentGradient: 'linear-gradient(135deg, #0099a8 0%, #00b8cc 100%)',
                         noticeIcon: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0099a8" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27,6.96 12,12.01 20.73,6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>',
-                        noticeMessage: '<strong style="color: #0099a8;">Stock Alert:</strong> The following items do not have sufficient stock available. Please reduce the quantities or remove these items from your basket to continue with your order.',
+                        noticeMessage: `<strong style="color: #0099a8;">Stock Alert:</strong> Some items in your basket exceed available stock at ${storeName}. To proceed with your order, please adjust the quantities or remove these items.`,
                         listIcon: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0099a8" stroke-width="2" style="margin-right: 8px;"><path d="M16 11V7a4 4 0 0 0-8 0v4M5 9h14l1 12H4L5 9z"/><line x1="9" y1="13" x2="15" y2="19"/><line x1="15" y1="13" x2="9" y2="19"/></svg>',
                         listTitle: 'Out of Stock Products',
                         listBg: 'linear-gradient(135deg, #f0fdff 0%, #e6ffff 100%)',
@@ -378,7 +464,13 @@ define([
                         buttonGradientHover: 'linear-gradient(135deg, #008a99 0%, #00a3b8 100%)',
                         buttonShadow: 'rgba(0, 153, 168, 0.3)',
                         buttonShadowHover: 'rgba(0, 153, 168, 0.4)',
-                        shadowColor: 'rgba(0, 153, 168, 0.1)'
+                        shadowColor: 'rgba(0, 153, 168, 0.1)',
+                        // Store availability section styling - improved subtle styling
+                        storeListBg: 'linear-gradient(135deg, #f8fffe 0%, #f0fdfb 100%)',
+                        storeListBorder: '#e6f7f3',
+                        storeBadgeBg: '#ffffff',
+                        storeBadgeText: '#0099a8',
+                        storeBadgeBorder: '#0099a8'
                     };
                 } else {
                     return {
@@ -420,16 +512,12 @@ define([
                     $(document).off('keydown.clearOutModal');
                     $('#osc_order_comment').focus();
                     $('html, body').animate({ scrollTop: $('#osc_order_comment').offset().top - 100 }, 500);
-                    console.log('Popup closed');
                 }, 400);
             }
 
-            console.log('Starting clear out validation...');
             clearOutValidation.validateClearOutProducts()
                 .then(function (validation) {
-                    console.log('Validation result:', validation);
                     if (validation.allowed) {
-                        console.log('Validation passed, proceeding with place order');
                         originalAction(paymentData, messageContainer)
                             .done(deferred.resolve)
                             .fail(function(error) {
@@ -437,16 +525,11 @@ define([
                                 deferred.reject();
                             });
                     } else {
-                        console.log('Validation failed:', validation.message, 'Reason:', validation.reason);
-                        console.log('clearOutItems in validation:', validation.clearOutItems);
                         messageList.clear();
                         
-                        // Show popup for delivery_not_allowed and insufficient_stock errors
                         if (validation.reason === 'delivery_not_allowed' || validation.reason === 'insufficient_stock') {
                             createDynamicPopup(validation);
                         } else {
-                            // Use Magento error message for other cases
-                            console.log('Using Magento error message for reason:', validation.reason);
                             messageList.addErrorMessage({ message: validation.message });
                             $('#osc_order_comment').focus();
                             $('html, body').animate({ scrollTop: $('#osc_order_comment').offset().top - 100 }, 500);
